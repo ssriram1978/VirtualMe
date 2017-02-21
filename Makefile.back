@@ -1,0 +1,53 @@
+#CC = colorgcc
+GPP = gcc
+
+
+# -Wno-deprecatd-declarations is for 
+CFLAGS+= -g -Wall -Wformat-nonliteral -Wformat-security \
+         -Wno-deprecated-declarations \
+
+CPPFLAGS+= -std=c++11
+
+LDFLAGS +=  -lpthread 
+
+c_sources = \
+         doubly_linked_list.c \
+         hash_table.c \
+         main.c \
+         single_linked_list.c \
+         sorted_array.c
+
+cpp_sources = \
+
+c_objects=$(c_sources:%.c=%.o)
+cpp_objects=$(cpp_sources:%.cpp=%.o)
+objects=$(c_objects) $(cpp_objects)
+
+
+%.so :
+
+APPS = datastructures
+
+all: $(APPS)
+#
+
+datastructures: $(objects)
+	$(GPP) $(CFLAGS) $(CPPFLAGS)   $(LDFLAGS) \
+
+%.o: %.cpp
+	$(GPP) $(CFLAGS) $(CPPFLAGS)  -fPIC -c $< -o $@
+
+install:
+
+clean:
+	rm -f $(APPS)
+	rm -f *.o
+	find . -type f -name '*.o' -delete
+
+clobber:
+	rm -rf ./build
+
+distclean:
+	rm -rf ./build
+	find . -type f -name '*.o' -delete
+
