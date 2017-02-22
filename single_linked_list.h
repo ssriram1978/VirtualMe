@@ -31,5 +31,6 @@ void delete_node_from_linked_list(long player_id);
 long count_total_nodes_in_linked_list();
 single_linked_list *return_nodes_belonging_to_this_percentile(unsigned char percentile);
 void print_nodes_in_linked_list();
+void reverse_linked_list();
 
 #endif /* single_linked_list_h */

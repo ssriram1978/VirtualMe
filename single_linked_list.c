@@ -81,6 +81,29 @@ void add_node_to_linked_list(long player_id, long player_score)
     }
 }
 
+void reverse_linked_list()
+{
+   single_linked_list *currNode = head, *prevNode = NULL, *nextNode = NULL;
+
+   while(currNode)
+   {
+        if(currNode == head)
+        {
+           tail = currNode;
+        }
+   
+        if(currNode->next == NULL)
+        {
+           head = currNode;
+        }
+        
+        nextNode = currNode->next;
+        currNode->next = prevNode;
+        prevNode = currNode;
+        currNode = nextNode;
+   }
+}
+
 void delete_node_from_linked_list(long player_id)
 {
     single_linked_list *node = head;

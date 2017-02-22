@@ -36,7 +36,7 @@ void make_unsorted_array2(long size)
         //random_number++;
         //printf("Random number = %ld\n",random_number);
         add_entry_to_hash_table(random_number);
-        //add_node_to_linked_list(random_number,random_number);
+        add_node_to_linked_list(random_number,random_number);
         //add_node_to_doubly_linked_list(random_number,random_number);
         //enqueue(random_number,random_number);
         add_to_player_score_btree(get_player_score_bt_address(),random_number,random_number);
@@ -74,6 +74,9 @@ int main(int argc, const char * argv[])
     //print_binary_tree(get_player_id_bt());
     //printf("Dumping player_score binary tree \n");
     //print_binary_tree(get_player_score_bt());
+    //print_nodes_in_linked_list();
+    //reverse_linked_list();
+    //print_nodes_in_linked_list();
     
     for(index=0; index < queuesize; index++)
     {
