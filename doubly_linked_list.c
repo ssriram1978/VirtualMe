@@ -7,7 +7,7 @@
 //
 
 #include "doubly_linked_list.h"
-
+#include <math.h>
 
 static doubly_linked_list *head = NULL;
 static doubly_linked_list *tail = NULL;
@@ -18,7 +18,8 @@ static doubly_linked_list *middle_nodes[MAX_NUMBER_OF_ELEMENTS/NUMBER_OF_MIDDLE_
 doubly_linked_list* fetch_valid_middle_node_near_to_player_score(int index,long player_score)
 {
    int index2 = index;
-   
+   doubly_linked_list *ptr = NULL;
+    
    while(index2 && middle_nodes[index2] == NULL)
    {
       index2--;
@@ -27,7 +28,7 @@ doubly_linked_list* fetch_valid_middle_node_near_to_player_score(int index,long 
    if(index2 == 0)
    {
       //All done. Return the middle node.
-      return middle_nodes[index2];
+      ptr = middle_nodes[index2];
    }
    else
    {
@@ -39,7 +40,8 @@ doubly_linked_list* fetch_valid_middle_node_near_to_player_score(int index,long 
          
          while(low <= high)
          {
-            mid = low + (high -low)/2;
+            mid = low + lround((high -low)/2);
+             
             if(middle_nodes[mid] && middle_nodes[mid]->player_score == player_score)
             {
                return middle_nodes[mid];
@@ -52,13 +54,107 @@ doubly_linked_list* fetch_valid_middle_node_near_to_player_score(int index,long 
             {
                high = mid-1;
             }
-       }
-       
-       return middle_nodes[mid];
-      }
+             
+            ptr = middle_nodes[mid];
+         }
+     }
    }
+    return ptr;
 }
 
+long add_node_to_doubly_linked_list2(long player_id, long player_score, long linkedlist_starting_search_index)
+{
+    doubly_linked_list *ptr = NULL;
+    long new_linkedlist_index = 0;
+    
+    ptr = (doubly_linked_list *) calloc(1,sizeof(doubly_linked_list));
+    ptr->player_id = player_id;
+    ptr->player_score = player_score;
+    
+    new_linkedlist_index = (long) ptr;
+    
+    if(head == NULL)
+    {
+        head = ptr;
+        ptr->next = NULL;
+        ptr->prev = NULL;
+        tail = head;
+        count++;
+        //printf("Adding player id =%ld for the first time, count=%ld \n",player_id, count);
+    }
+    else
+    {
+        //start searching for a node from the provided linkedlist_index.
+        
+        doubly_linked_list *node = NULL;
+        if(linkedlist_starting_search_index == 0)
+        {
+            node = head;
+        }
+        else
+        {
+            node = (doubly_linked_list *) linkedlist_starting_search_index;
+        }
+        
+        while(node &&
+              (node->next != NULL) &&
+              (player_score >= node->player_score))
+        {
+            node = node->next;
+        }
+        
+        if(node)
+        {
+            if (player_score <= node->player_score)
+            {
+                //Add ptr before this node.
+                ptr->next = node;
+                ptr->prev = node->prev;
+                
+                if(node->prev)
+                {
+                    //Change previous node to point to this ptr
+                    node->prev->next = ptr;
+                }
+                
+                //change node previous to ptr
+                node->prev = ptr;
+                
+                count++;
+                //printf("Adding player id =%ld before %ld, count=%ld\n",player_id,node->player_id,count);
+                
+                if(head == node)
+                {
+                    //Adjust head to point to this new node.
+                    head = ptr;
+                    //printf("Adjusting head  pointer to this player id =%ld\n",player_id);
+                }
+            }
+            else
+            {
+                //You reached the end of the list. Add it at the end.
+                count++;
+                //printf("Adding player id =%ld after %ld,count=%ld \n",player_id,prev->player_id,count);
+                
+                //Add ptr after this node.
+                ptr->next = NULL;
+                ptr->prev = node;
+                
+                //Change node next to ptr
+                node->next = ptr;
+                
+                if(tail == node)
+                {
+                    //Adjust tail to point to this new node.
+                    tail = ptr;
+                    //printf("Adjusting tail  pointer to this player id =%ld\n",player_id);
+                }
+            }
+        }
+    }
+    
+    return new_linkedlist_index;
+}
 
 void add_node_to_doubly_linked_list(long player_id, long player_score)
 {
@@ -80,6 +176,7 @@ void add_node_to_doubly_linked_list(long player_id, long player_score)
     }
     else
     {
+//#if 0
         doubly_linked_list *node = head;
         
         //As long as player_score is greater than the player score in the node,
@@ -99,9 +196,39 @@ void add_node_to_doubly_linked_list(long player_id, long player_score)
                 middle_nodes[middle_index] = node;
             }
         }
+//#endif
+        
 #if 0
         //search the known middle nodes for a valid node.
-        doubly_linked_list *node = fetch_valid_middle_node_near_to_player_score(MAX_NUMBER_OF_ELEMENTS/NUMBER_OF_MIDDLE_POINTERS);
+        doubly_linked_list *node = fetch_valid_middle_node_near_to_player_score(MAX_NUMBER_OF_ELEMENTS/NUMBER_OF_MIDDLE_POINTERS,
+                                                                                player_score);
+        if(node)
+        {
+           if(node->player_score < player_score)
+           {
+               //use next pointer
+               while(node &&
+                     (node->next != NULL) &&
+                     (player_score >= node->player_score))
+               {
+                   node = node->next;
+               }
+           }
+           else if(node->player_score > player_score)
+           {
+               //use previous pointer
+               while(node &&
+                     (node->prev != NULL) &&
+                     (player_score <= node->player_score))
+               {
+                   node = node->prev;
+               }
+           }
+           else
+           {
+              //found the node.
+           }
+        }
 #endif
         if(node)
         {
@@ -237,6 +364,23 @@ void print_nodes_in_middle_doubly_linked_list()
         {
            printf("\nNode at index =%d has player id =%ld,score=%ld\n",index,node->player_id,node->player_score);
         }
+    }
+}
+
+void get_player_score_at_this_linkedlist_index(long linkedlist_index, long player_index, long *player_score)
+{
+    doubly_linked_list *node = NULL;
+
+    if(!linkedlist_index || !player_index || !player_score)
+    {
+        return;
+    }
+    
+    node = (doubly_linked_list *) linkedlist_index;
+    
+    if(node && node->player_id && (node->player_id == player_index))
+    {
+        *player_score = node->player_score;
     }
 }
 

@@ -4,9 +4,7 @@
 
 
 #ifndef MAX_NUMBER_OF_ELEMENTS
-#define MAX_NUMBER_OF_ELEMENTS 10000000
+#define MAX_NUMBER_OF_ELEMENTS 100000000
 #endif
-
-
 
 #endif

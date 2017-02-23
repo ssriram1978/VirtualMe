@@ -7,19 +7,18 @@
 //
 
 #include "hash_table.h"
+#include <math.h>
 
 Node *hash[HASH_TABLE_SIZE+1] = {0};
 
+Node *hash2[HASH_TABLE_SIZE+1] = {0};
 
 Node* newNode(long key)
 {
     Node *p = (Node *) calloc(1, sizeof(Node));
-    p->player_id = key;
-    
+    p->key = key;
     return p;
 }
-
-
 
 void Pearson16(unsigned char *x, size_t len, unsigned long *hex, size_t hexlen)
 {
@@ -106,35 +105,53 @@ unsigned long calculate_hash_key2( long inKey)
     return key;
 }
 
+long largest_value = 0;
 
-int add_entry_to_hash_table(long inKey)
+int add_entry_to_hash_table(long inKey, long linkedlist_index, long value, unsigned char table_id)
 {
     //return 1 if inKey is found; 0, otherwise
     //insert a new key in its appropriate list so list is in order
     unsigned long k = calculate_hash_key2(inKey);
-    Node *curr = hash[k];
+    Node *curr = NULL;
     Node *prev = NULL;
     Node *np = NULL;
+    Node **hash_table = NULL;
     
-    while (curr != NULL && (inKey > curr->player_id))
+    if(table_id == PLAYER_ID_HASH_TABLE)
+    {
+        hash_table = hash;
+    }
+    else if(table_id == PLAYER_SCORE_HASH_TABLE)
+    {
+        hash_table = hash2;
+    }
+    
+    //printf("\nk =%ld\n",k);
+    
+    curr = hash_table[k];
+        
+    while ((curr != NULL) && (inKey > curr->key))
     {
         prev = curr;
         curr = curr->next;
-    }
-    
-    if (curr != NULL && (inKey == curr->player_id))
-    {
-        return 1; //found
     }
     
     //not found; inKey is a new key; add it so list is in order
     np = newNode(inKey);
     
     np->next = curr;
+    np->value = value;
+    
+    if(value > largest_value)
+    {
+        largest_value = value;
+    }
+    
+    np->linkedlist_index = linkedlist_index;
     
     if (prev == NULL)
     {
-        hash[k] = np;
+        hash_table[k] = np;
     }
     else
     {
@@ -144,38 +161,60 @@ int add_entry_to_hash_table(long inKey)
     return 0;
 } //end search
 
+
 void printList(Node *top)
 {
     while (top != NULL)
     {
         //printf("%s dup_keys-%lu; ", top->key_name,top->duplicate_keys);
-        printf("%ld; ", top->player_id);
+        printf("%ld; ", top->key);
         top = top->next;
     }
 } //end printList
 
 
-void print_all_hash_table_entries()
+void print_all_hash_table_entries(unsigned char table_id)
 {
     unsigned long h;
+    Node **hash_table = NULL;
+    
+    if(table_id == PLAYER_ID_HASH_TABLE)
+    {
+        hash_table = hash;
+    }
+    else if(table_id == PLAYER_SCORE_HASH_TABLE)
+    {
+        hash_table = hash2;
+    }
     
     for (h = 1; h <= HASH_TABLE_SIZE; h++)
     {
-        if (hash[h] != NULL)
+        if (hash_table[h] != NULL)
         {
             printf("\nhash[%lu]: ", h);
-            printList(hash[h]);
+            printList(hash_table[h]);
         }
     }
 }
 
-unsigned long find_total_number_of_hash_table_entries()
+unsigned long find_total_number_of_hash_table_entries(unsigned char table_id)
 {
     unsigned long count = 0;
     unsigned long h;
+    Node **hash_table = NULL;
+    
+    if(table_id == PLAYER_ID_HASH_TABLE)
+    {
+        hash_table = hash;
+    }
+    else if(table_id == PLAYER_SCORE_HASH_TABLE)
+    {
+        hash_table = hash2;
+    }
+
     for (h = 1; h <= HASH_TABLE_SIZE; h++)
     {
-        if (hash[h] != NULL)
+        if (hash_table[h] != NULL)
         {
             count++;
         }
@@ -184,22 +223,36 @@ unsigned long find_total_number_of_hash_table_entries()
     return count;
 }
 
-unsigned long find_max_number_of_collisions()
+unsigned long find_max_number_of_collisions(unsigned char table_id)
 {
     unsigned long count = 0;
     unsigned long h;
+    Node **hash_table = NULL;
+    
+    if(table_id == PLAYER_ID_HASH_TABLE)
+    {
+        hash_table = hash;
+    }
+    else if(table_id == PLAYER_SCORE_HASH_TABLE)
+    {
+        hash_table = hash2;
+    }
+    
     for (h = 1; h <= HASH_TABLE_SIZE; h++)
     {
-        if (hash[h] != NULL)
+        if (hash_table[h] != NULL)
         {
             unsigned long temp_count = 0;
-            Node *top = hash[h];
+            Node *top = hash_table[h];
             
             while (top != NULL)
             {
                 top = top->next;
                 temp_count++;
-                if (temp_count > count) count = temp_count;
+            }
+            if (temp_count > count)
+            {
+               count = temp_count;
             }
         }
     }
@@ -207,19 +260,31 @@ unsigned long find_max_number_of_collisions()
     return count;
 }
 
-int find_entry_in_hash_table(char *name)
+long find_entry_in_hash_table(long player_id,unsigned char table_id)
 {
     int found = 0;
-    long hash_key = atol(name);
+    long hash_key = player_id;
     unsigned long h = calculate_hash_key2(hash_key);
-    
-    if (hash[h] != NULL)
+    long linkedlist_index = 0;
+    Node *top = NULL;
+    Node **hash_table = NULL;
+
+    if(table_id == PLAYER_ID_HASH_TABLE)
     {
-        Node *top = hash[h];
+        hash_table = hash;
+    }
+    else if(table_id == PLAYER_SCORE_HASH_TABLE)
+    {
+        hash_table = hash2;
+    }
+
+    if (hash_table[h] != NULL)
+    {
+        top = hash_table[h];
         
         while (top != NULL)
         {
-            if(hash_key == top->player_id)
+            if(hash_key == top->key)
             {
                 found = 1;
                 break;
@@ -227,6 +292,89 @@ int find_entry_in_hash_table(char *name)
             top = top->next;
         }
     }
-    return found;
+    if(found && top)
+    {
+        linkedlist_index = top->linkedlist_index;
+    }
+    
+    return linkedlist_index;
 }
 
+long find_entry_in_hash_table2(long percentile,long *key, unsigned char table_id)
+{
+    int found = 0;
+    long hash_key = lround((largest_value * percentile)/100);
+    unsigned long h = calculate_hash_key2(hash_key);
+    long value = 0;
+    Node *top = NULL;
+    Node **hash_table = NULL;
+    
+    if(table_id == PLAYER_ID_HASH_TABLE)
+    {
+        hash_table = hash;
+    }
+    else if(table_id == PLAYER_SCORE_HASH_TABLE)
+    {
+        hash_table = hash2;
+    }
+    
+    if (hash_table[h] != NULL)
+    {
+        top = hash_table[h];
+        
+        while (top != NULL)
+        {
+            if(hash_key == top->key)
+            {
+                found = 1;
+                break;
+            }
+            top = top->next;
+        }
+    }
+    if(found && top)
+    {
+        *key = top->key;
+        value = top->value;
+    }
+    
+    return value;
+}
+
+
+long find_nearest_entry_in_hash_table(long key,unsigned char table_id)
+{
+    struct timeval  start_time = {0};
+    struct timeval  end_time = {0};
+    struct timeval result = {0};
+    
+   //come up with an algorithm to search the hashtable effectively
+   //for now just do a linear search
+    long index = 0;
+    long linkedlist_index = 0;
+    
+    {
+        gettimeofday(&start_time, NULL);
+ 
+        for (index = key; index > 0; index--)
+        {
+            linkedlist_index = find_entry_in_hash_table(index,table_id);
+            if(linkedlist_index)
+            {
+                break;
+            }
+        }
+        gettimeofday(&end_time, NULL);
+        timersub(&end_time,&start_time,&result);
+        if(result.tv_usec >=2000)
+        {
+        printf("\nfound player_id=%ld, linkedlist_index = %ld, It took %ld.%06ld useconds to complete the search.\n",
+               key,
+               linkedlist_index,
+               result.tv_sec,
+               result.tv_usec);
+        }
+    }
+    
+    return linkedlist_index;
+}

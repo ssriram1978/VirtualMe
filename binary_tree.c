@@ -161,10 +161,172 @@ void read_player_score_from_player_id_btree(binary_tree *p_bt, long player_id, l
    }
 }
 
-void delete_from_btree(long p_player_id)
+void find_largest_from_this_node(binary_tree *p_bt, binary_tree *p_outbt)
 {
-
+   if(p_bt)
+   {
+       find_largest_from_this_node(p_bt->leftchild,p_outbt);
+       if(p_outbt->player_id <= p_bt->player_id)
+       {
+           p_outbt->player_id = p_bt->player_id;
+           p_outbt->player_score = p_bt->player_score;
+           p_outbt->leftchild = p_bt->leftchild;
+           p_outbt->rightchild = p_bt->rightchild;
+       }
+       find_largest_from_this_node(p_bt->rightchild,p_outbt);
+   }
 }
+#if 0
+void print_node_at_depth(binary_tree *p_bt,long depth)
+{
+    char buffer[100];
+    char buffer2[100];
+    int i = 0;
+    
+    memset(buffer,0,100);
+    memset(buffer2,0,100);
+    
+    for(i=0; i < depth; i++)
+    {
+        strcat(buffer," ");
+    }
+    sprintf(buffer,"%ld",p_bt->player_id);
+    printf("%s\n",buffer);
+    
+    if(p_bt->leftchild)
+    {
+        for(i=0; i < depth-2; i++)
+        {
+            strcat(buffer," ");
+        }
+        strcat(buffer,"/");
+    }
+    
+}
+
+void print_btree(binary_tree *p_bt)
+{
+    long depth_of_btree = 0;
+    
+   if(!p_bt)
+   {
+       return;
+   }
+   find_depth_of_binary_tree(p_bt, &depth_of_btree);
+   
+    print_node_at_depth(p_bt,depth_of_btree);
+    
+    printf("%ld\n",p_bt->player_id);
+    print_btree(p_bt->leftchild);
+    print_btree(p_bt->rightchild);
+}
+#endif
+
+void delete_from_btree(binary_tree **p_bt, long p_player_id)
+{
+   if(!p_bt || !*p_bt)
+   {
+       return;
+   }
+   else
+   {
+      if(p_player_id < (*p_bt)->player_id)
+      {
+          delete_from_btree(&(*p_bt)->leftchild, p_player_id);
+      }
+      else if(p_player_id > (*p_bt)->player_id)
+      {
+          delete_from_btree(&(*p_bt)->rightchild, p_player_id);
+      }
+      else
+      {
+          if((*p_bt)->leftchild && (*p_bt)->rightchild)
+          {
+              //Identify the largest node from the left child.
+              //swap it with the current node.
+              //free the largest node on the left child.
+              binary_tree bt = {0};
+              
+              find_largest_from_this_node((*p_bt)->leftchild,&bt);
+              
+              (*p_bt)->player_id = bt.player_id;
+              (*p_bt)->player_score = bt.player_score;
+              delete_from_btree(&(*p_bt)->leftchild,bt.player_id);
+          }
+          else if (!((*p_bt)->leftchild) && ((*p_bt)->rightchild))
+          {
+             //swap the right node with the current node and free the right child.
+              (*p_bt)->player_id = (*p_bt)->rightchild->player_id;
+              (*p_bt)->player_score = (*p_bt)->rightchild->player_score;
+              free((*p_bt)->rightchild);
+              (*p_bt)->rightchild = NULL;
+          }
+          else if (((*p_bt)->leftchild) && !((*p_bt)->rightchild))
+          {
+              //swap the left node with the current node and free the left child.
+              (*p_bt)->player_id = (*p_bt)->leftchild->player_id;
+              (*p_bt)->player_score = (*p_bt)->leftchild->player_score;
+              free((*p_bt)->leftchild);
+              (*p_bt)->leftchild = NULL;
+          }
+          else if (!((*p_bt)->leftchild) && !((*p_bt)->rightchild))
+          {
+              free(*p_bt);
+              *p_bt = NULL;
+          }
+      }
+   }
+}
+
+void delete_binary_tree(binary_tree **p_bt)
+{
+   //post order traversal
+   if(!p_bt || !*p_bt)
+   {
+       return;
+   }
+   else
+   {
+       delete_binary_tree(&(*p_bt)->leftchild);
+       delete_binary_tree(&(*p_bt)->rightchild);
+       free(*p_bt);
+       *p_bt = NULL;
+   }
+}
+
+void find_depth_of_binary_tree(binary_tree *p_bt, long *p_bt_length)
+{
+    if(!p_bt || !p_bt_length)
+    {
+        return;
+    }
+    else
+    {
+        //find depth of left subtree.
+        //find depth of right subtree.
+        //compare the depths of both left and right subtree and pick the one that is greater.
+        //add 1 to the computed depth and return.
+        
+        long left_depth = 0;
+        find_depth_of_binary_tree(p_bt->leftchild, &left_depth);
+        long right_depth = 0;
+        find_depth_of_binary_tree(p_bt->rightchild, &right_depth);
+        
+        //printf("left_depth=%ld,right_depth=%ld\n",left_depth,right_depth);
+        
+        if(left_depth > right_depth)
+        {
+            *p_bt_length +=(left_depth+1);
+        }
+        else
+        {
+            *p_bt_length +=(right_depth+1);
+        }
+        //printf("returning *p_bt_length=%ld\n",*p_bt_length);
+    }
+}
+
+
 
 void count_binary_tree_size(binary_tree *p_bt, long *p_count)
 {

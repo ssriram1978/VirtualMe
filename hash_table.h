@@ -23,25 +23,28 @@
 #define HASH_TABLE_SIZE 100000
 #endif
 
+#define PLAYER_ID_HASH_TABLE    1
+#define PLAYER_SCORE_HASH_TABLE 2
 
 typedef struct node
 {
-   long player_id;
-   long player_index;
+   long key;
+   long value;
+   long linkedlist_index;
    struct node *next;
 }Node;
 
-
-void printList(Node *ptr);
-int add_entry_to_hash_table(long inKey) ;
+long find_entry_in_hash_table2(long percentile,long *key, unsigned char table_id);
+int add_entry_to_hash_table(long inKey,long linkedlist_index, long value, unsigned char table_id);
 unsigned long calculate_hash_key( char *inKey);
 unsigned long calculate_hash_key2( long inKey);
 Node* newNode(long key);
 void Pearson16(unsigned char *x, size_t len, unsigned long *hex, size_t hexlen);
 void printList(Node *top);
-void print_all_hash_table_entries();
-unsigned long find_total_number_of_hash_table_entries();
-unsigned long find_max_number_of_collisions();
-int find_entry_in_hash_table(char *name);
+void print_all_hash_table_entries(unsigned char table_id);
+unsigned long find_total_number_of_hash_table_entries(unsigned char table_id);
+unsigned long find_max_number_of_collisions(unsigned char table_id);
+long find_entry_in_hash_table(long player_id,unsigned char table_id);
+long find_nearest_entry_in_hash_table(long key,unsigned char table_id);
 
 #endif /* hash_table_h */

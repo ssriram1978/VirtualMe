@@ -32,12 +32,13 @@ typedef struct _doubly_linked_list
     struct _doubly_linked_list *prev;
 } doubly_linked_list;
 
+long add_node_to_doubly_linked_list2(long player_id, long player_score, long linkedlist_index);
 void add_node_to_doubly_linked_list(long player_id, long player_score);
 void delete_node_from_doubly_linked_list(long player_id);
 long count_total_nodes_in_doubly_linked_list();
 doubly_linked_list *return_nodes_from_doubly_linked_list_belonging_to_this_percentile(unsigned char percentile);
 void print_nodes_in_doubly_linked_list();
 void print_nodes_in_middle_doubly_linked_list();
-
+void get_player_score_at_this_linkedlist_index(long linkedlist_index, long player_index, long *player_score);
 
 #endif /* doubly_linked_list_h */
