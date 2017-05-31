@@ -10,6 +10,306 @@
 
 name_value_pair *pNameValuePairHandle = NULL;
 
+#ifndef USE_HEAP
+name_value_pair g_name_value_pair[MAX_NUMBER_OF_WORDS_TO_BE_READ];
+
+msgq_node g_msgq_node[MAX_NUMBER_OF_WORDS_TO_BE_READ];
+
+msgQ g_msgQ;
+
+#endif
+
+//printing tree in ascii
+
+int lprofile[MAX_HEIGHT];
+int rprofile[MAX_HEIGHT];
+
+//adjust gap between left and right nodes
+int gap = 3;  
+
+//used for printing next node in the same level, 
+//this is the x coordinate of the next char printed
+int print_next;    
+
+int MIN (int X, int Y)  
+{
+  return ((X) < (Y)) ? (X) : (Y);
+}
+
+int MAX (int X, int Y)  
+{
+  return ((X) > (Y)) ? (X) : (Y);
+}
+
+
+
+//The following function fills in the lprofile array for the given tree.
+//It assumes that the center of the label of the root of this tree
+//is located at a position (x,y).  It assumes that the edge_length
+//fields have been computed for this tree.
+void compute_lprofile(asciinode *node, int x, int y) 
+{
+   int i, isleft;
+   if (node == NULL) return;
+   isleft = (node->parent_dir == -1);
+   lprofile[y] = MIN(lprofile[y], x-((node->lablen-isleft)/2));
+   if (node->left != NULL) 
+   {
+       for (i=1; i <= node->edge_length && y+i < MAX_HEIGHT; i++) 
+       {
+          lprofile[y+i] = MIN(lprofile[y+i], x-i);
+       }
+   }
+   compute_lprofile(node->left, x-node->edge_length-1, y+node->edge_length+1);
+   compute_lprofile(node->right, x+node->edge_length+1, y+node->edge_length+1);
+}
+
+void compute_rprofile(asciinode *node, int x, int y) 
+{
+   int i, notleft;
+   if (node == NULL) return;
+   notleft = (node->parent_dir != -1);
+   rprofile[y] = MAX(rprofile[y], x+((node->lablen-notleft)/2));
+   if (node->right != NULL) 
+   {
+       for (i=1; i <= node->edge_length && y+i < MAX_HEIGHT; i++) 
+       {
+          rprofile[y+i] = MAX(rprofile[y+i], x+i);
+       }
+   }
+   compute_rprofile(node->left, x-node->edge_length-1, y+node->edge_length+1);
+   compute_rprofile(node->right, x+node->edge_length+1, y+node->edge_length+1);
+}
+
+//This function prints the given level of the given tree, assuming
+//that the node has the given x cordinate.
+void print_level(asciinode *node, int x, int level) 
+{
+    int i, isleft;
+    if (node == NULL) return;
+    isleft = (node->parent_dir == -1);
+    if (level == 0) 
+    {
+        for (i=0; i<(x-print_next-((node->lablen-isleft)/2)); i++) 
+        {
+          printf(" ");
+        }
+        print_next += i;
+        printf("%s", node->label);
+        print_next += node->lablen;
+    } 
+    else if (node->edge_length >= level) 
+    {
+        if (node->left != NULL) 
+        {
+            for (i=0; i<(x-print_next-(level)); i++) 
+            {
+                printf(" ");
+            }
+            print_next += i;
+            printf("/");
+            print_next++;
+        }
+        if (node->right != NULL) 
+        {
+            for (i=0; i<(x-print_next+(level)); i++) 
+            {
+                printf(" ");
+            }
+            print_next += i;
+            printf("\\");
+            print_next++;
+        }
+    } 
+    else 
+    {
+        print_level(node->left, 
+                  x-node->edge_length-1, 
+                  level-node->edge_length-1);
+
+        print_level(node->right, 
+                  x+node->edge_length+1, 
+                  level-node->edge_length-1);
+    }
+}
+
+//This function fills in the edge_length and 
+//height fields of the specified tree
+void compute_edge_lengths(asciinode *node) 
+{
+    int h, hmin, i, delta;
+  
+    if (node == NULL)
+    {
+       return;
+    }
+    
+    compute_edge_lengths(node->left);
+    compute_edge_lengths(node->right);
+  
+    /* first fill in the edge_length of node */
+    if (node->right == NULL && node->left == NULL) 
+    {
+        node->edge_length = 0;
+    } 
+    else 
+    {
+       if (node->left != NULL) 
+       {
+           for (i=0; i<node->left->height && i < MAX_HEIGHT; i++) 
+           {
+               rprofile[i] = -INFINITY2;
+           }
+           compute_rprofile(node->left, 0, 0);
+           hmin = node->left->height;
+       } 
+       else 
+       {
+           hmin = 0;
+       }
+       
+       if (node->right != NULL) 
+       {
+           for (i=0; i<node->right->height && i < MAX_HEIGHT; i++) 
+           {
+               lprofile[i] = INFINITY2;
+           }
+           compute_lprofile(node->right, 0, 0);
+           hmin = MIN(node->right->height, hmin);
+       } 
+       else 
+       {
+           hmin = 0;
+       }
+   
+       delta = 4;
+       
+       for (i=0; i<hmin; i++) 
+       {
+           delta = MAX(delta, gap + 1 + rprofile[i] - lprofile[i]);
+       }
+         
+       //If the node has two children of height 1, then we allow the
+       //two leaves to be within 1, instead of 2 
+       if (((node->left != NULL && node->left->height == 1) ||
+           (node->right != NULL && node->right->height == 1))&&delta>4) 
+       {
+          delta--;
+       }
+           
+       node->edge_length = ((delta+1)/2) - 1;
+    }
+  
+    //now fill in the height of node
+    h = 1;
+    if (node->left != NULL) 
+    {
+        h = MAX(node->left->height + node->edge_length + 1, h);
+    }
+    if (node->right != NULL) 
+    {
+        h = MAX(node->right->height + node->edge_length + 1, h);
+    }
+    node->height = h;
+}
+ 
+asciinode* build_ascii_tree_recursive(Tree *t) 
+{
+  asciinode * node = NULL;
+  
+  if (t == NULL) 
+  {
+     return NULL;
+  }
+
+  node = calloc(1,sizeof(asciinode));
+  node->left = build_ascii_tree_recursive(t->leftchild);
+  node->right = build_ascii_tree_recursive(t->rightchild);
+  
+  if (node->left != NULL) 
+  {
+    node->left->parent_dir = LEFT;
+  }
+
+  if (node->right != NULL) 
+  {
+    node->right->parent_dir = RIGHT;
+  }
+
+  sprintf(node->label, "%s", t->name);
+  node->lablen = strlen(node->label);
+
+  return node;
+}
+
+
+//Copy the tree into the ascii node structre
+asciinode* build_ascii_tree(Tree *t) 
+{
+  asciinode *node = NULL;
+  if (t == NULL) 
+  {
+     return NULL;
+  }
+
+  //Prepare an ascii tree with all values from the given tree.
+  node = build_ascii_tree_recursive(t);
+  
+  node->parent_dir = ROOT;
+
+  return node;
+}
+
+//prints ascii tree for given Tree structure
+void print_ascii_tree(Tree *t) 
+{
+  asciinode *proot = NULL;
+  int xmin, i;
+  
+  if (t == NULL) 
+  {
+     printf("%s:%d Input parameters are NULL.\n",__FUNCTION__,__LINE__);
+     return;
+  }
+
+  //Allocate an ascii tree.
+  proot = build_ascii_tree(t);
+
+  compute_edge_lengths(proot);
+  
+  for (i=0; i<proot->height && i < MAX_HEIGHT; i++) 
+  {
+      lprofile[i] = INFINITY2;
+  }
+  compute_lprofile(proot, 0, 0);
+  xmin = 0;
+  for (i = 0; i < proot->height && i < MAX_HEIGHT; i++) 
+  {
+      xmin = MIN(xmin, lprofile[i]);
+  }
+  for (i = 0; i < proot->height; i++) 
+  {
+      print_next = 0;
+      print_level(proot, -xmin, i);
+      printf("\n");
+  }
+  if (proot->height >= MAX_HEIGHT) 
+  {
+      printf("(This tree is taller than %d, and may be drawn incorrectly.)\n", MAX_HEIGHT);
+  }
+  free_ascii_tree(proot); 
+}
+
+//Free all the nodes of the given tree
+void free_ascii_tree(asciinode *node) 
+{
+  if (node == NULL) return;
+  free_ascii_tree(node->left);
+  free_ascii_tree(node->right);
+  free(node);
+}
+
+
 name_value_pair* get_name_value_pair_handle_single_ptr()
 {
    return pNameValuePairHandle;
@@ -39,59 +339,114 @@ int strcasecmp(const char *s1, const char *s2)
     return (to_lower(*us1) - to_lower(*--us2));
 }
 
-
-void add_name_to_name_value_pair(name_value_pair **pname_value_pair, char *pWord, long value)
+ 
+name_value_pair* add_name_to_name_value_pair(name_value_pair **ppname_value_pair, char *pWord, long value)
 {
-   if(!pname_value_pair || !pWord || (strlen(pWord) >= MAX_WORD_LENGTH))
+   if(!ppname_value_pair || !pWord || (strlen(pWord) >= MAX_WORD_LENGTH))
    {
       printf("Invalid argument.\n");
-      return;
+      return NULL;
    }
 
-   if(*pname_value_pair == NULL)
+   if(*ppname_value_pair == NULL)
    {
-      *pname_value_pair = (name_value_pair *) calloc(1, sizeof(name_value_pair));
-      (*pname_value_pair)->leftchild = NULL;
-      (*pname_value_pair)->rightchild = NULL;
-      strcpy((*pname_value_pair)->name,pWord);
-      (*pname_value_pair)->value = value;
+      #ifdef USE_HEAP
+         *ppname_value_pair = (name_value_pair *) calloc(1, sizeof(name_value_pair));
+      #else
+      {
+         //Use stack.
+         msgq_node *p_msgQ_node = NULL;         
+         dequeue_a_free_node(&p_msgQ_node);
+
+         if(p_msgQ_node)
+         {
+            *ppname_value_pair = (name_value_pair *) &g_name_value_pair[p_msgQ_node->index];
+         }
+         else
+         {
+            printf("p_msgQ_node is null.\n");
+            return NULL;
+         }
+      }
+      #endif
+      
+      (*ppname_value_pair)->leftchild = NULL;
+      (*ppname_value_pair)->rightchild = NULL;
+      strcpy((*ppname_value_pair)->name,pWord);
+      (*ppname_value_pair)->value = value;
    }
-   else if(strcasecmp(((*pname_value_pair)->name),pWord) > 0)
+   else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) > 0)
    {
-       add_name_to_name_value_pair(&(*pname_value_pair)->leftchild,pWord,value);
+       (*ppname_value_pair)->leftchild = add_name_to_name_value_pair(&(*ppname_value_pair)->leftchild,pWord,value);
    }
-   else
+   else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) < 0)
    {
-       add_name_to_name_value_pair(&(*pname_value_pair)->rightchild,pWord,value);
+       (*ppname_value_pair)->rightchild = add_name_to_name_value_pair(&(*ppname_value_pair)->rightchild,pWord,value);
    }
+   else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) == 0)
+   {
+      //Duplicate. Ignore it for now.
+   }
+
+   return (*ppname_value_pair);
 }
 
-void print_name_starting_with(name_value_pair **pname_value_pair, char *pWord)
+void print_name_starting_with(name_value_pair **ppname_value_pair, char *pWord)
 {
-   if(!pname_value_pair || !(*pname_value_pair) || !pWord || (strlen(pWord) >= MAX_WORD_LENGTH))
+   if(!ppname_value_pair || !(*ppname_value_pair) || !pWord || (strlen(pWord) >= MAX_WORD_LENGTH))
    {
       return;
    }
    
-   if(strncmp(((*pname_value_pair)->name),pWord,strlen(pWord)) > 0)
+   if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) > 0)
    {
-       print_name_starting_with(&(*pname_value_pair)->leftchild,pWord);
+       print_name_starting_with(&(*ppname_value_pair)->leftchild,pWord);
    }
-   else if(strncmp(((*pname_value_pair)->name),pWord,strlen(pWord)) < 0)
+   else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) < 0)
    {
-       print_name_starting_with(&(*pname_value_pair)->rightchild,pWord);
+       print_name_starting_with(&(*ppname_value_pair)->rightchild,pWord);
    }
-   else if(strncmp(((*pname_value_pair)->name),pWord,strlen(pWord)) == 0)
+   else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) == 0)
    {
-       printf("Found %s\n",(*pname_value_pair)->name);
+       printf("Found %s\n",(*ppname_value_pair)->name);
        
-       if(strlen(pWord) < strlen((*pname_value_pair)->name))
+       if(strlen(pWord) < strlen((*ppname_value_pair)->name))
        {
-          print_name_starting_with(&(*pname_value_pair)->leftchild,pWord);
-          print_name_starting_with(&(*pname_value_pair)->rightchild,pWord);
+          print_name_starting_with(&(*ppname_value_pair)->leftchild,pWord);
+          print_name_starting_with(&(*ppname_value_pair)->rightchild,pWord);
        }
    }
 }
+
+void delete_name_starting_with(name_value_pair **ppname_value_pair, char *pWord)
+{
+   if(!ppname_value_pair || !(*ppname_value_pair) || !pWord || (strlen(pWord) >= MAX_WORD_LENGTH))
+   {
+      return;
+   }
+   
+   if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) > 0)
+   {
+       delete_name_starting_with(&(*ppname_value_pair)->leftchild,pWord);
+   }
+   else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) < 0)
+   {
+       delete_name_starting_with(&(*ppname_value_pair)->rightchild,pWord);
+   }
+   else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) == 0)
+   {
+       printf("Deleting %s\n",(*ppname_value_pair)->name);
+       
+       delete_a_name_from_name_value_pair(ppname_value_pair,(*ppname_value_pair)->name);
+       
+       if(strlen(pWord) < strlen((*ppname_value_pair)->name))
+       {
+          delete_name_starting_with(&(*ppname_value_pair)->leftchild,pWord);
+          delete_name_starting_with(&(*ppname_value_pair)->rightchild,pWord);
+       }
+   }
+}
+
 
 void fetch_name_value_pair_size(name_value_pair *pname_value_pair, long *pname_value_pairSize)
 {
@@ -116,19 +471,242 @@ void print_name_value_pair_content(name_value_pair *pname_value_pair)
    
    print_name_value_pair_content(pname_value_pair->leftchild);
 
-   printf("%s\n",pname_value_pair->name);
+   printf("name = %s\n",pname_value_pair->name);
 
    print_name_value_pair_content(pname_value_pair->rightchild);
 }
 
-void delete_a_name_from_name_value_pair(name_value_pair **pname_value_pair, char *pWord)
+void write_names_in_unsorted_format(name_value_pair *pname_value_pair, FILE *pOutFile)
 {
-   //Difficult one. TBD
+   if(!pname_value_pair)
+   {
+      return;
+   }
+   
+   write_names_in_unsorted_format(pname_value_pair->rightchild,pOutFile);
+
+   fprintf (pOutFile, "%s\n",pname_value_pair->name);
+
+   write_names_in_unsorted_format(pname_value_pair->leftchild,pOutFile);
 }
 
-void find_the_depth_of_the_name_value_pair(name_value_pair **pname_value_pair, long *pname_value_pairDepth)
+
+
+void delete_a_name_from_name_value_pair(name_value_pair **ppname_value_pair, char *pWord)
 {
-   //TBD
+#if 0
+   if(!ppname_value_pair || !*ppname_value_pair || !pWord)
+   {
+      return;
+   }
+
+   if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) > 0) 
+   {
+       delete_a_name_from_name_value_pair(&(*ppname_value_pair)->leftchild, pWord);
+   }
+   else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) < 0)
+   {
+       delete_a_name_from_name_value_pair(&(*ppname_value_pair)->rightchild, pWord);
+   }
+   else
+   {
+       if((*ppname_value_pair)->leftchild && (*ppname_value_pair)->rightchild)
+       {
+           //Identify the largest node from the left child.
+           //swap it with the current node.
+           //free the largest node on the left child.
+           name_value_pair bt = {0};
+           memset(&bt, 0, sizeof(name_value_pair));
+
+           find_largest_name_from_this_current_node((*ppname_value_pair)->leftchild,&bt);
+
+           strcpy((*ppname_value_pair)->name,bt.name);
+           (*ppname_value_pair)->value = bt.value;
+
+           //Delete the largest node from the left child.
+           delete_a_name_from_name_value_pair(&(*ppname_value_pair)->leftchild,bt.name);
+       }
+       else if (!((*ppname_value_pair)->leftchild) && ((*ppname_value_pair)->rightchild))
+       {
+          //swap the right node with the current node and free the right child.
+          printf("Over-writing %s with right node %s.\n",(*ppname_value_pair)->name,(*ppname_value_pair)->rightchild->name);
+
+           memset((*ppname_value_pair)->name,0,sizeof(char)*MAX_WORD_LENGTH);
+           strcpy((*ppname_value_pair)->name,(*ppname_value_pair)->rightchild->name);
+
+           (*ppname_value_pair)->value = (*ppname_value_pair)->rightchild->value;
+
+           #ifdef USE_HEAP
+           free((*ppname_value_pair)->rightchild);
+           #else
+           memset((*ppname_value_pair)->rightchild,0,sizeof(name_value_pair));
+           #endif
+
+           (*ppname_value_pair)->leftchild = (*ppname_value_pair)->rightchild->leftchild;
+           (*ppname_value_pair)->rightchild = (*ppname_value_pair)->rightchild->rightchild;
+       }
+       else if (((*ppname_value_pair)->leftchild) && !((*ppname_value_pair)->rightchild))
+       {
+           //swap the left node with the current node and free the left child.
+           printf("Over-writing %s with left node %s.\n",(*ppname_value_pair)->name,(*ppname_value_pair)->leftchild->name);
+           memset((*ppname_value_pair)->name,0,sizeof(char)*MAX_WORD_LENGTH);
+           strcpy((*ppname_value_pair)->name,(*ppname_value_pair)->leftchild->name);
+
+           (*ppname_value_pair)->value = (*ppname_value_pair)->leftchild->value;
+
+           #ifdef USE_HEAP
+           free((*ppname_value_pair)->leftchild);
+           #else
+           memset((*ppname_value_pair)->leftchild,0,sizeof(name_value_pair));
+           #endif
+           
+           (*ppname_value_pair)->leftchild = (*ppname_value_pair)->leftchild->leftchild;
+           (*ppname_value_pair)->rightchild = (*ppname_value_pair)->leftchild->rightchild;
+
+       }
+       else if (!((*ppname_value_pair)->leftchild) && !((*ppname_value_pair)->rightchild))
+       {
+           printf("clearing %s.\n",(*ppname_value_pair)->name);
+           #ifdef USE_HEAP
+           free((*ppname_value_pair));
+           #else
+           memset((*ppname_value_pair),0,sizeof(name_value_pair));
+           #endif
+           (*ppname_value_pair) = NULL;
+       }
+   }
+#endif   
+}
+
+name_value_pair *find_min(name_value_pair *t)
+{
+  //In a binary tree,at any node the left child of that node will be the smallest and the 
+  // right child of that node will be the largest.
+  //Therefore, traverse only on the left branch to find the smallest.
+  if (t == NULL)
+  {
+    return NULL;
+  }
+  else if (t->leftchild == NULL)
+  {
+    return t;
+  }
+  else
+  {
+    return find_min(t->leftchild);
+  }
+}
+
+name_value_pair* delete_a_name_from_name_value_pair2(name_value_pair *pname_value_pair, char *pWord)
+{
+   //Deletes node from the tree
+   // Return a pointer to the resulting tree
+   name_value_pair *x;
+   name_value_pair *tmp_cell;
+   
+   if (!pname_value_pair)
+   {
+      return NULL;
+   }
+   
+   if(strncmp(((pname_value_pair)->name),pWord,strlen(pWord)) > 0) 
+   {
+     printf("%s is greater than %s. Going to the left child..\n",((pname_value_pair)->name),pWord);
+     (pname_value_pair)->leftchild = delete_a_name_from_name_value_pair2((pname_value_pair)->leftchild,pWord);
+   } 
+   else if (strncmp(((pname_value_pair)->name),pWord,strlen(pWord)) < 0)
+   {
+       printf("%s is lesser than %s. Going to the right child..\n",((pname_value_pair)->name),pWord);
+       (pname_value_pair)->rightchild = delete_a_name_from_name_value_pair2((pname_value_pair)->rightchild,pWord);
+   } 
+   else if ((pname_value_pair)->leftchild && (pname_value_pair)->rightchild)
+   {
+     printf("Found the node(%s) with left(%s) and right(%s) child.\n",
+      (pname_value_pair)->name,
+      (pname_value_pair)->leftchild->name,
+      (pname_value_pair)->rightchild->name);
+
+     //Found the node.
+     //Now, find the minimum node on the right child and swap it with the current node that is about to be deleted.
+     tmp_cell = find_min((pname_value_pair)->rightchild);
+
+     if(tmp_cell)
+     {
+        printf("Found a node(%s) on the right of this current node (%s) with no left child.\n",
+         tmp_cell->name,
+         (pname_value_pair)->name);
+        
+        memset((pname_value_pair)->name,0,MAX_WORD_LENGTH);
+        strcpy((pname_value_pair)->name,tmp_cell->name);
+        (pname_value_pair)->value = tmp_cell->value;
+
+        //GO ahead and delete the node that you just swapped with the current node.
+        (pname_value_pair)->rightchild = delete_a_name_from_name_value_pair2((pname_value_pair)->rightchild,(pname_value_pair)->name);
+     }
+   }
+   else
+   {
+      printf("Found the node with only one child.\n");
+      tmp_cell = (pname_value_pair);
+      if ((pname_value_pair)->rightchild)
+      {
+        //The current node has only one right child. 
+        //Move the current node pointer to this right child for the recursive function to assign it to the previous node.
+        (pname_value_pair) = (pname_value_pair)->rightchild;
+      }
+      else if ((pname_value_pair)->leftchild)
+      {
+        //The current node has only one left child. 
+        //Move the current node pointer to this left child for the recursive function to assign it to the previous node.
+        (pname_value_pair) = (pname_value_pair)->leftchild;
+      }
+#ifdef USE_HEAP
+      free(tmp_cell);
+#else
+      memset(tmp_cell,0,sizeof(name_value_pair));
+#endif
+   }
+   
+   return (pname_value_pair);
+}
+
+
+void heapify_name_value_pair()
+{
+
+}
+
+void find_the_depth_of_the_name_value_pair(name_value_pair *pname_value_pair, long *pname_value_pairDepth)
+{
+   if(!pname_value_pair || !pname_value_pairDepth)
+   {
+       return;
+   }
+   else
+   {
+       //find depth of left subtree.
+       //find depth of right subtree.
+       //compare the depths of both left and right subtree and pick the one that is greater.
+       //add 1 to the computed depth and return.
+       
+       long left_depth = 0;
+       find_the_depth_of_the_name_value_pair(pname_value_pair->leftchild, &left_depth);
+       long right_depth = 0;
+       find_the_depth_of_the_name_value_pair(pname_value_pair->rightchild, &right_depth);
+       
+       //printf("left_depth=%ld,right_depth=%ld\n",left_depth,right_depth);
+       
+       if(left_depth > right_depth)
+       {
+           *pname_value_pairDepth +=(left_depth+1);
+       }
+       else
+       {
+           *pname_value_pairDepth +=(right_depth+1);
+       }
+       //printf("returning *p_bt_length=%ld\n",*p_bt_length);
+   }
+   
 }
 
 int random_between(int min, long max)
@@ -157,14 +735,68 @@ void generate_a_word(char *pWord)
 }
 
 
+#ifndef USE_HEAP
+
+void *create_msgq(void *arg)
+{
+   long index = 0;
+
+   for(index =0; index < MAX_NUMBER_OF_WORDS_TO_BE_READ; index++)
+   {
+      memset(&g_msgq_node[index],0,sizeof(msgq_node));
+      g_msgq_node[index].index = index;
+      g_msgq_node[index].pLink = NULL;
+      
+      if((g_msgQ.pFront == NULL) || (g_msgQ.pRear == NULL))
+      {
+         g_msgQ.pFront = g_msgQ.pRear = (msgq_node *) &(g_msgq_node[index]);
+      }
+      else
+      {
+         g_msgQ.pRear->pLink = (msgq_node *) &(g_msgq_node[index]);
+         g_msgQ.pRear = (msgq_node *) g_msgQ.pRear->pLink;
+      }
+   }
+   
+   pthread_exit(NULL);
+
+   return NULL;
+}
+
+void dequeue_a_free_node(msgq_node **pp_msgQ_node)
+{
+   if(g_msgQ.pFront == NULL)
+   {
+      printf("No message in messageQ.\n");
+      return;
+   }
+
+   if(!pp_msgQ_node)
+   {
+      printf("p_msgQ_node is NULL.\n");
+      return;
+   }
+
+   *pp_msgQ_node = g_msgQ.pFront;
+
+   g_msgQ.pFront = (msgq_node *) g_msgQ.pFront->pLink;   
+}
+
+#endif
+
+
+
 void *create_name_value_pair_database(void *arg)
 {
    FILE *pFile = NULL;
+   FILE *pOutFile = NULL;
    char word[MAX_WORD_LENGTH];
    long count = 0;
-
-   pFile = fopen ("../english-words/words2.txt","r+");
+   long index = 0;
+   long identifier = 0;
    
+   pFile = fopen ("../english-words/unsorted_words.txt","r+");
+
    if (pFile == NULL)
    {
      printf("Unable to open the file\n");
@@ -172,21 +804,28 @@ void *create_name_value_pair_database(void *arg)
    }
    else
    {
-      printf("Opened the file successfully.\n");
+      printf("Opened the input file successfully.\n");
    
       //generate_a_word(word);
-      while (fgets (word,MAX_WORD_LENGTH,pFile) != NULL)
+      while((index < MAX_NUMBER_OF_WORDS_TO_BE_READ) &&
+            (fscanf (pFile,"%s %ld",word,&identifier) > 0))
       {
          //puts(word);
-         //printf("word=%s\n",word);
-         add_name_to_name_value_pair(get_name_value_pair_handle_double_ptr(),word,count);
-         memset((unsigned char *)word,0,MAX_WORD_LENGTH);
+         if(strlen(word) > 1)
+         {
+            //printf("word=%s,strlen=%ld\n",word,strlen(word));
+            add_name_to_name_value_pair(get_name_value_pair_handle_double_ptr(),word,identifier);
+            index++;
+         }
+         memset((unsigned char *)word,0,MAX_WORD_LENGTH);         
+         identifier = 0;
       }
       //usleep(1000000);
       
       fclose (pFile);
    
-      print_name_value_pair_content(get_name_value_pair_handle_single_ptr());
+      //print_name_value_pair_content(get_name_value_pair_handle_single_ptr());
+      //create_unsorted_name_text_file();
    }
    
    pthread_exit(NULL);
@@ -195,31 +834,125 @@ void *create_name_value_pair_database(void *arg)
 
 }
 
+void create_unsorted_name_text_file()
+{
+   FILE *pOutFile = NULL;
+   char word[MAX_WORD_LENGTH];
+   long count = 0;
+   long index = 0;
+   
+   //pOutFile = fopen ("../english-words/unsorted-words4.txt","w+");
+   pOutFile = fopen ("../english-words/unsorted-words4.txt","w+");
+
+   if (pOutFile == NULL)
+   {
+     printf("Unable to open the pOutFile \n");
+     return;
+   }
+   else
+   {
+      printf("Opened the output file successfully.\n");
+   
+      write_names_in_unsorted_format(get_name_value_pair_handle_single_ptr(),pOutFile);
+      
+      fclose (pOutFile);   
+   }
+}
+
+void find_largest_name_from_this_current_node(name_value_pair *pname_value_pair,name_value_pair *pLargest_name_value_pair)
+{
+   if(!pname_value_pair || !pLargest_name_value_pair)
+   {
+      return;
+   }
+
+   find_largest_name_from_this_current_node(pname_value_pair->leftchild,pLargest_name_value_pair);
+   
+   if(strncmp(pname_value_pair->name,pLargest_name_value_pair->name,strlen(pLargest_name_value_pair->name)) > 0)
+   {
+      //current node is greater than the pLargerst name value pair.Overwrite, pname_value_pair with this one.
+      memset(pLargest_name_value_pair,0,sizeof(name_value_pair));
+      memcpy(pLargest_name_value_pair,pname_value_pair,sizeof(name_value_pair));
+   }
+
+   find_largest_name_from_this_current_node(pname_value_pair->rightchild,pLargest_name_value_pair);
+}
+
+
+
 void main()
 {
    char input_str[MAX_WORD_LENGTH];
+   char command[MAX_COMMAND_LENGTH];
    pthread_t g_thread;
    int s = 0;
-   
+   #ifndef USE_HEAP
+   pthread_t g_create_msgQ_thread;
+   #endif
+    
    pthread_attr_t attr;
    
    pthread_attr_init(&attr);
 
+#ifndef USE_HEAP
+   s = pthread_create(&g_create_msgQ_thread, &attr, create_msgq, NULL);
+   sleep(1);
+#endif
+
    s = pthread_create(&g_thread, &attr, create_name_value_pair_database, NULL);
+
 
    do
    {
       long total_number_of_elements = 0;
       
-      fetch_name_value_pair_size(get_name_value_pair_handle_single_ptr(),&total_number_of_elements);
-      
-      printf("Total number of elements = %ld\n",total_number_of_elements);
-      printf("\n Enter the string to search:");
-      memset(input_str,0,MAX_WORD_LENGTH);
-      scanf("%s",input_str);
-      printf("You entered %s\n",input_str);
-      print_name_starting_with(get_name_value_pair_handle_double_ptr(),input_str);
-   } while(strcmp("quit",input_str) != 0);
+      printf("\n Enter your command:<count|dump|depth|delete|find|tree|quit>\n");
+      memset(command,0,MAX_COMMAND_LENGTH);
+      scanf("%s",command);
+      printf("You entered %s\n",command);
+
+      if(strcmp("count",command) == 0)
+      {
+         fetch_name_value_pair_size(get_name_value_pair_handle_single_ptr(),&total_number_of_elements);      
+         printf("Total number of elements = %ld\n",total_number_of_elements);
+      }
+      else if(strcmp("dump",command) == 0)
+      {
+         print_name_value_pair_content(get_name_value_pair_handle_single_ptr());
+      }
+      else if(strcmp("tree",command) == 0)
+      {
+         print_ascii_tree(get_name_value_pair_handle_single_ptr());
+      }
+      else if (strcmp("depth",command) == 0)
+      {
+         long name_value_pairDepth = 0;
+         find_the_depth_of_the_name_value_pair(get_name_value_pair_handle_single_ptr(),&name_value_pairDepth);
+         printf("name_value_pairDepth = %ld\n",name_value_pairDepth);
+      }
+      else if (strcmp("delete",command) == 0)
+      {
+         memset(input_str,0,MAX_WORD_LENGTH);
+         printf("\n Enter the name to be deleted:\n");
+         scanf("%s",input_str);
+
+         //delete_name_starting_with(get_name_value_pair_handle_double_ptr(),p_ch);
+
+         printf("Deleting %s\n",input_str);
+         
+         delete_a_name_from_name_value_pair2(get_name_value_pair_handle_single_ptr(),input_str);
+      }
+      else if (strcmp("find",command) == 0)
+      {
+         memset(input_str,0,MAX_WORD_LENGTH);
+         printf("\n Enter the name to be found:\n");
+         scanf("%s",input_str);
+         
+         printf("Finding names that sound like %s\n",input_str);
+         
+         print_name_starting_with(get_name_value_pair_handle_double_ptr(),input_str);
+      }
+   } while(strcmp("quit",command) != 0);
 }
 
 

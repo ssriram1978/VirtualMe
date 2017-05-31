@@ -228,53 +228,51 @@ void delete_from_btree(binary_tree **p_bt, long p_player_id)
    {
        return;
    }
+
+   if(p_player_id < (*p_bt)->player_id)
+   {
+       delete_from_btree(&(*p_bt)->leftchild, p_player_id);
+   }
+   else if(p_player_id > (*p_bt)->player_id)
+   {
+       delete_from_btree(&(*p_bt)->rightchild, p_player_id);
+   }
    else
    {
-      if(p_player_id < (*p_bt)->player_id)
-      {
-          delete_from_btree(&(*p_bt)->leftchild, p_player_id);
-      }
-      else if(p_player_id > (*p_bt)->player_id)
-      {
-          delete_from_btree(&(*p_bt)->rightchild, p_player_id);
-      }
-      else
-      {
-          if((*p_bt)->leftchild && (*p_bt)->rightchild)
-          {
-              //Identify the largest node from the left child.
-              //swap it with the current node.
-              //free the largest node on the left child.
-              binary_tree bt = {0};
-              
-              find_largest_from_this_node((*p_bt)->leftchild,&bt);
-              
-              (*p_bt)->player_id = bt.player_id;
-              (*p_bt)->player_score = bt.player_score;
-              delete_from_btree(&(*p_bt)->leftchild,bt.player_id);
-          }
-          else if (!((*p_bt)->leftchild) && ((*p_bt)->rightchild))
-          {
-             //swap the right node with the current node and free the right child.
-              (*p_bt)->player_id = (*p_bt)->rightchild->player_id;
-              (*p_bt)->player_score = (*p_bt)->rightchild->player_score;
-              free((*p_bt)->rightchild);
-              (*p_bt)->rightchild = NULL;
-          }
-          else if (((*p_bt)->leftchild) && !((*p_bt)->rightchild))
-          {
-              //swap the left node with the current node and free the left child.
-              (*p_bt)->player_id = (*p_bt)->leftchild->player_id;
-              (*p_bt)->player_score = (*p_bt)->leftchild->player_score;
-              free((*p_bt)->leftchild);
-              (*p_bt)->leftchild = NULL;
-          }
-          else if (!((*p_bt)->leftchild) && !((*p_bt)->rightchild))
-          {
-              free(*p_bt);
-              *p_bt = NULL;
-          }
-      }
+       if((*p_bt)->leftchild && (*p_bt)->rightchild)
+       {
+           //Identify the largest node from the left child.
+           //swap it with the current node.
+           //free the largest node on the left child.
+           binary_tree bt = {0};
+           
+           find_largest_from_this_node((*p_bt)->leftchild,&bt);
+           
+           (*p_bt)->player_id = bt.player_id;
+           (*p_bt)->player_score = bt.player_score;
+           delete_from_btree(&(*p_bt)->leftchild,bt.player_id);
+       }
+       else if (!((*p_bt)->leftchild) && ((*p_bt)->rightchild))
+       {
+          //swap the right node with the current node and free the right child.
+           (*p_bt)->player_id = (*p_bt)->rightchild->player_id;
+           (*p_bt)->player_score = (*p_bt)->rightchild->player_score;
+           free((*p_bt)->rightchild);
+           (*p_bt)->rightchild = NULL;
+       }
+       else if (((*p_bt)->leftchild) && !((*p_bt)->rightchild))
+       {
+           //swap the left node with the current node and free the left child.
+           (*p_bt)->player_id = (*p_bt)->leftchild->player_id;
+           (*p_bt)->player_score = (*p_bt)->leftchild->player_score;
+           free((*p_bt)->leftchild);
+           (*p_bt)->leftchild = NULL;
+       }
+       else if (!((*p_bt)->leftchild) && !((*p_bt)->rightchild))
+       {
+           free(*p_bt);
+           *p_bt = NULL;
+       }
    }
 }
 
