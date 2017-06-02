@@ -1,8 +1,8 @@
 #ifndef name_value_pair_H
 #define name_value_pair_H
 
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include <string.h>
 #include <time.h>
@@ -10,9 +10,10 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#define MAX_WORD_LENGTH 255
+#define MAX_WORD_LENGTH 10
 #define MAX_COMMAND_LENGTH 20
-#define MAX_NUMBER_OF_WORDS_TO_BE_READ 100
+#define MAX_NUMBER_OF_WORDS_TO_BE_READ 10
+#define MAX_NUMBER_OF_ALPHABETS 26
 
 typedef struct _name_value_pair
 {
@@ -20,6 +21,7 @@ typedef struct _name_value_pair
     char name[MAX_WORD_LENGTH];
     struct _name_value_pair *leftchild;
     struct _name_value_pair *rightchild;
+    int height;
 } name_value_pair;
 
 #ifndef USE_HEAP
@@ -62,9 +64,13 @@ struct asciinode_struct
 };
 
 
-#define MAX_HEIGHT 1000
+#define MAX_HEIGHT MAX_NUMBER_OF_WORDS_TO_BE_READ+10
 #define INFINITY2 (1<<20)
+#define ROOT 0
+#define LEFT -1
+#define RIGHT 1
 
+#define max(a,b) ((a > b) ? a: b)
 
 void print_level(asciinode *node, int x, int level);
 void print_ascii_tree(Tree * t);
@@ -75,6 +81,7 @@ void compute_rprofile(asciinode *node, int x, int y);
 void compute_lprofile(asciinode *node, int x, int y);
 asciinode * build_ascii_tree_recursive(Tree *t);
 
+int height_of_name_value_pair(name_value_pair *node);
 
 
 

@@ -10,6 +10,8 @@
 
 name_value_pair *pNameValuePairHandle = NULL;
 
+#define READ_WORDS_FROM_TEXT_FILE 1
+
 #ifndef USE_HEAP
 name_value_pair g_name_value_pair[MAX_NUMBER_OF_WORDS_TO_BE_READ];
 
@@ -18,6 +20,95 @@ msgq_node g_msgq_node[MAX_NUMBER_OF_WORDS_TO_BE_READ];
 msgQ g_msgQ;
 
 #endif
+
+#include <stdint.h>
+
+// Define MT19937 constants (32-bit RNG)
+enum
+{
+    // Assumes W = 32 (omitting this)
+    N = 624,
+    M = 397,
+    R = 31,
+    A = 0x9908B0DF,
+
+    F = 1812433253,
+
+    U = 11,
+    // Assumes D = 0xFFFFFFFF (omitting this)
+
+    S = 7,
+    B = 0x9D2C5680,
+
+    T = 15,
+    C = 0xEFC60000,
+
+    L = 18,
+
+    MASK_LOWER = (1ull << R) - 1,
+    MASK_UPPER = (1ull << R)
+};
+
+static uint32_t  mt[N];
+static uint16_t  index2;
+
+// Re-init with a given seed
+void Initialize(const uint32_t  seed)
+{
+    uint32_t  i;
+
+    mt[0] = seed;
+
+    for ( i = 1; i < N; i++ )
+    {
+        mt[i] = (F * (mt[i - 1] ^ (mt[i - 1] >> 30)) + i);
+    }
+
+    index2 = N;
+}
+
+static void Twist()
+{
+    uint32_t  i, x, xA;
+
+    for ( i = 0; i < N; i++ )
+    {
+        x = (mt[i] & MASK_UPPER) + (mt[(i + 1) % N] & MASK_LOWER);
+
+        xA = x >> 1;
+
+        if ( x & 0x1 )
+            xA ^= A;
+
+        mt[i] = mt[(i + M) % N] ^ xA;
+    }
+
+    index2 = 0;
+}
+
+// Obtain a 32-bit random number
+uint32_t ExtractU32()
+{
+    uint32_t  y;
+    int       i = index2;
+
+    if ( index2 >= N )
+    {
+        Twist();
+        i = index2;
+    }
+
+    y = mt[i];
+    index2 = i + 1;
+
+    y ^= (mt[i] >> U);
+    y ^= (y << S) & B;
+    y ^= (y << T) & C;
+    y ^= (y >> L);
+
+    return y;
+}
+
 
 //printing tree in ascii
 
@@ -670,6 +761,131 @@ name_value_pair* delete_a_name_from_name_value_pair2(name_value_pair *pname_valu
    return (pname_value_pair);
 }
 
+//height of an AVL tree is O(log n)
+int height_of_name_value_pair(name_value_pair *node)
+{
+   if(!node)
+    return -1;
+   else
+    return node->height;
+}
+
+name_value_pair *single_rotate_left(name_value_pair *X)
+{
+   name_value_pair *W = X->leftchild;
+   
+   X->leftchild = W->rightchild;
+   W->rightchild = X;
+   X->height = max(height_of_name_value_pair(X->leftchild),
+                   height_of_name_value_pair(X->rightchild)) +1;
+   W->height = max(height_of_name_value_pair(W->leftchild),
+                   (X->height)) +1;
+   return W;
+}
+
+name_value_pair *single_rotate_right(name_value_pair *W)
+{
+   name_value_pair *X = W->rightchild;
+   
+   W->rightchild = X->leftchild;
+   X->leftchild = W;
+   W->height = max(height_of_name_value_pair(W->rightchild),
+                   height_of_name_value_pair(W->leftchild)) +1;
+   X->height = max(height_of_name_value_pair(X->rightchild),
+                   (W->height)) +1;
+   return X;
+}
+
+name_value_pair *double_rotate_with_left(name_value_pair *Z)
+{
+   Z->leftchild = single_rotate_right(Z->leftchild);
+   return single_rotate_left(Z);
+}
+
+name_value_pair *double_rotate_with_right(name_value_pair *Z)
+{
+   Z->rightchild = single_rotate_left(Z->rightchild);
+   return single_rotate_right(Z);
+}
+
+name_value_pair* add_name_to_name_value_pair2(name_value_pair **ppname_value_pair, char *pWord, long value)
+{
+   if(!ppname_value_pair || !pWord || (strlen(pWord) >= MAX_WORD_LENGTH))
+   {
+      printf("Invalid argument.\n");
+      return NULL;
+   }
+
+   if(*ppname_value_pair == NULL)
+   {
+      #ifdef USE_HEAP
+         *ppname_value_pair = (name_value_pair *) calloc(1, sizeof(name_value_pair));
+      #else
+      {
+         //Use stack.
+         msgq_node *p_msgQ_node = NULL;         
+         dequeue_a_free_node(&p_msgQ_node);
+
+         if(p_msgQ_node)
+         {
+            *ppname_value_pair = (name_value_pair *) &g_name_value_pair[p_msgQ_node->index];
+         }
+         else
+         {
+            printf("p_msgQ_node is null.\n");
+            return NULL;
+         }
+      }
+      #endif
+      
+      (*ppname_value_pair)->leftchild = NULL;
+      (*ppname_value_pair)->rightchild = NULL;
+      strcpy((*ppname_value_pair)->name,pWord);
+      (*ppname_value_pair)->value = value;
+   }
+   else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) > 0)
+   {
+       (*ppname_value_pair)->leftchild = add_name_to_name_value_pair(&(*ppname_value_pair)->leftchild,pWord,value);
+
+       if((height_of_name_value_pair((*ppname_value_pair)->leftchild) - height_of_name_value_pair((*ppname_value_pair)->rightchild)) == 2)
+       {
+          if(strncmp(((*ppname_value_pair)->leftchild->name),pWord,strlen(pWord)) > 0)
+          {
+             (*ppname_value_pair) = single_rotate_left((*ppname_value_pair));             
+          }
+          else
+          {
+             (*ppname_value_pair) = double_rotate_with_left((*ppname_value_pair));
+          }
+       }
+   }
+   else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) < 0)
+   {
+      (*ppname_value_pair)->rightchild = add_name_to_name_value_pair(&(*ppname_value_pair)->rightchild,pWord,value);
+      
+      if((height_of_name_value_pair((*ppname_value_pair)->rightchild) - height_of_name_value_pair((*ppname_value_pair)->leftchild)) == 2)
+      {
+         if(strncmp(((*ppname_value_pair)->rightchild->name),pWord,strlen(pWord)) > 0)
+         {
+            (*ppname_value_pair) = single_rotate_right((*ppname_value_pair));             
+         }
+         else
+         {
+            (*ppname_value_pair) = double_rotate_with_right((*ppname_value_pair));
+         }
+      }
+   }
+   else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) == 0)
+   {
+      //Duplicate. Ignore it for now.
+   }
+
+   (*ppname_value_pair)->height = max(height_of_name_value_pair((*ppname_value_pair)->leftchild),
+                                      height_of_name_value_pair((*ppname_value_pair)->rightchild)) +1;
+
+   return (*ppname_value_pair);
+}
+
 
 void heapify_name_value_pair()
 {
@@ -714,24 +930,38 @@ int random_between(int min, long max)
    return (rand() % (max - min + 1) + min);
 }
 
-void generate_a_word(char *pWord)
+void generate_a_name_value_pair()
 {
-   int count = 0;
-   int random_number = 0;
+   long index = 0;
+   char word[MAX_WORD_LENGTH];
    
-   if(!pWord)
-    return;
+   Initialize((unsigned)(time(NULL)));
+   srand((unsigned) (time(NULL)));
 
-   srand((unsigned) time(NULL));
-
-   for(count=0; count < MAX_WORD_LENGTH-1; count++)
+   while(index < MAX_NUMBER_OF_WORDS_TO_BE_READ)
    {
-      char c = 0;
-      random_number = random_between(1,(MAX_WORD_LENGTH-1));
-      //printf("random_number=%d\n",random_number);
-      c = 'a'+random_number;
-      *(pWord + count) = c;
-   }   
+     int count = 0;
+     int random_number = 0;
+     int random_number2 = 0;
+
+     memset((unsigned char *)word,0,MAX_WORD_LENGTH);         
+     char *pWord = word;
+
+     for(count=0; count < MAX_WORD_LENGTH-1; count++)
+     {
+        char c = 0;
+        //random_number = random_between(1,(MAX_WORD_LENGTH-1));
+        random_number2 = rand()%(MAX_NUMBER_OF_ALPHABETS);
+        random_number = ExtractU32()%MAX_NUMBER_OF_ALPHABETS;      
+        //printf("random_number=%d,random_number2=%d\n",random_number,random_number2);
+        c = 'a'+(random_number2%MAX_NUMBER_OF_ALPHABETS);
+        *(pWord + count) = c;
+     }   
+      //printf("word=%s,strlen=%ld\n",word,strlen(word));
+      add_name_to_name_value_pair2(get_name_value_pair_handle_double_ptr(),word,index);
+      index++;
+   }
+
 }
 
 
@@ -794,6 +1024,8 @@ void *create_name_value_pair_database(void *arg)
    long count = 0;
    long index = 0;
    long identifier = 0;
+
+   #ifdef READ_WORDS_FROM_TEXT_FILE
    
    pFile = fopen ("../english-words/unsorted_words.txt","r+");
 
@@ -805,8 +1037,7 @@ void *create_name_value_pair_database(void *arg)
    else
    {
       printf("Opened the input file successfully.\n");
-   
-      //generate_a_word(word);
+
       while((index < MAX_NUMBER_OF_WORDS_TO_BE_READ) &&
             (fscanf (pFile,"%s %ld",word,&identifier) > 0))
       {
@@ -827,7 +1058,10 @@ void *create_name_value_pair_database(void *arg)
       //print_name_value_pair_content(get_name_value_pair_handle_single_ptr());
       //create_unsorted_name_text_file();
    }
-   
+   #else
+       generate_a_name_value_pair();
+   #endif
+
    pthread_exit(NULL);
 
    return NULL;
