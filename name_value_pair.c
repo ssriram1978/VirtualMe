@@ -772,7 +772,13 @@ int height_of_name_value_pair(name_value_pair *node)
 
 name_value_pair *single_rotate_left(name_value_pair *X)
 {
+   if(!X)
+    return NULL;
+   
    name_value_pair *W = X->leftchild;
+
+   if(!W)
+    return NULL;
    
    X->leftchild = W->rightchild;
    W->rightchild = X;
@@ -785,7 +791,13 @@ name_value_pair *single_rotate_left(name_value_pair *X)
 
 name_value_pair *single_rotate_right(name_value_pair *W)
 {
+   if(!W)
+    return NULL;
+   
    name_value_pair *X = W->rightchild;
+
+   if(!X)
+    return NULL;
    
    W->rightchild = X->leftchild;
    X->leftchild = W;
@@ -845,32 +857,56 @@ name_value_pair* add_name_to_name_value_pair2(name_value_pair **ppname_value_pai
    }
    else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) > 0)
    {
-       (*ppname_value_pair)->leftchild = add_name_to_name_value_pair(&(*ppname_value_pair)->leftchild,pWord,value);
+       (*ppname_value_pair)->leftchild = add_name_to_name_value_pair2(&(*ppname_value_pair)->leftchild,pWord,value);
 
        if((height_of_name_value_pair((*ppname_value_pair)->leftchild) - height_of_name_value_pair((*ppname_value_pair)->rightchild)) == 2)
        {
+          print_ascii_tree(get_name_value_pair_handle_single_ptr());
+
           if(strncmp(((*ppname_value_pair)->leftchild->name),pWord,strlen(pWord)) > 0)
           {
+             printf("Performing single_rotate_left because root(%s) height is 2 and leftchild(%s) is greater than %s.\n",
+              ((*ppname_value_pair)->name),
+              ((*ppname_value_pair)->leftchild->name),
+              pWord);
+             
              (*ppname_value_pair) = single_rotate_left((*ppname_value_pair));             
           }
           else
           {
+             printf("Performing double_rotate_with_left because root(%s) height is 2 and leftchild(%s) is smaller than %s.\n",
+              ((*ppname_value_pair)->name),
+              ((*ppname_value_pair)->leftchild->name),
+              pWord);
+             
              (*ppname_value_pair) = double_rotate_with_left((*ppname_value_pair));
           }
        }
    }
    else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) < 0)
    {
-      (*ppname_value_pair)->rightchild = add_name_to_name_value_pair(&(*ppname_value_pair)->rightchild,pWord,value);
-      
+      (*ppname_value_pair)->rightchild = add_name_to_name_value_pair2(&(*ppname_value_pair)->rightchild,pWord,value);
+
       if((height_of_name_value_pair((*ppname_value_pair)->rightchild) - height_of_name_value_pair((*ppname_value_pair)->leftchild)) == 2)
       {
+         print_ascii_tree(get_name_value_pair_handle_single_ptr());
+ 
          if(strncmp(((*ppname_value_pair)->rightchild->name),pWord,strlen(pWord)) > 0)
          {
+            printf("Performing single_rotate_right because root(%s) height is 2 and rightchild(%s) is greater than %s.\n",
+             ((*ppname_value_pair)->name),
+             ((*ppname_value_pair)->rightchild->name),
+             pWord);
+
             (*ppname_value_pair) = single_rotate_right((*ppname_value_pair));             
          }
          else
          {
+            printf("Performing double_rotate_with_right because root(%s) height is 2 and rightchild(%s) is smaller than %s.\n",
+             ((*ppname_value_pair)->name),
+             ((*ppname_value_pair)->rightchild->name),
+             pWord);
+            
             (*ppname_value_pair) = double_rotate_with_right((*ppname_value_pair));
          }
       }
@@ -1045,7 +1081,9 @@ void *create_name_value_pair_database(void *arg)
          if(strlen(word) > 1)
          {
             //printf("word=%s,strlen=%ld\n",word,strlen(word));
-            add_name_to_name_value_pair(get_name_value_pair_handle_double_ptr(),word,identifier);
+            //add_name_to_name_value_pair(get_name_value_pair_handle_double_ptr(),word,identifier);
+            add_name_to_name_value_pair2(get_name_value_pair_handle_double_ptr(),word,identifier);
+            print_ascii_tree(get_name_value_pair_handle_single_ptr());
             index++;
          }
          memset((unsigned char *)word,0,MAX_WORD_LENGTH);         

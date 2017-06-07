@@ -12,7 +12,7 @@
 
 #define MAX_WORD_LENGTH 10
 #define MAX_COMMAND_LENGTH 20
-#define MAX_NUMBER_OF_WORDS_TO_BE_READ 10
+#define MAX_NUMBER_OF_WORDS_TO_BE_READ 5
 #define MAX_NUMBER_OF_ALPHABETS 26
 
 typedef struct _name_value_pair
