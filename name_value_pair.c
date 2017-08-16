@@ -11,6 +11,8 @@
 name_value_pair *pNameValuePairHandle = NULL;
 
 #define READ_WORDS_FROM_TEXT_FILE 1
+#define AVL_TREE 1
+#define UNSORTED_NAMES "unsorted_words.txt"
 
 #ifndef USE_HEAP
 name_value_pair g_name_value_pair[MAX_NUMBER_OF_WORDS_TO_BE_READ];
@@ -465,14 +467,20 @@ name_value_pair* add_name_to_name_value_pair(name_value_pair **ppname_value_pair
       (*ppname_value_pair)->rightchild = NULL;
       strcpy((*ppname_value_pair)->name,pWord);
       (*ppname_value_pair)->value = value;
+      (*ppname_value_pair)->height = max(height_of_name_value_pair((*ppname_value_pair)->leftchild),
+                                      height_of_name_value_pair((*ppname_value_pair)->rightchild)) +1; 
    }
    else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) > 0)
    {
        (*ppname_value_pair)->leftchild = add_name_to_name_value_pair(&(*ppname_value_pair)->leftchild,pWord,value);
+       (*ppname_value_pair)->height = max(height_of_name_value_pair((*ppname_value_pair)->leftchild),
+                                       height_of_name_value_pair((*ppname_value_pair)->rightchild)) +1; 
    }
    else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) < 0)
    {
        (*ppname_value_pair)->rightchild = add_name_to_name_value_pair(&(*ppname_value_pair)->rightchild,pWord,value);
+       (*ppname_value_pair)->height = max(height_of_name_value_pair((*ppname_value_pair)->leftchild),
+                                       height_of_name_value_pair((*ppname_value_pair)->rightchild)) +1; 
    }
    else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) == 0)
    {
@@ -562,7 +570,9 @@ void print_name_value_pair_content(name_value_pair *pname_value_pair)
    
    print_name_value_pair_content(pname_value_pair->leftchild);
 
-   printf("name = %s\n",pname_value_pair->name);
+   printf("name = %s,height=%d,left=%d,right=%d\n",pname_value_pair->name,pname_value_pair->height,
+    height_of_name_value_pair((pname_value_pair)->leftchild),
+    height_of_name_value_pair((pname_value_pair)->rightchild));
 
    print_name_value_pair_content(pname_value_pair->rightchild);
 }
@@ -808,19 +818,72 @@ name_value_pair *single_rotate_right(name_value_pair *W)
    return X;
 }
 
-name_value_pair *double_rotate_with_left(name_value_pair *Z)
+name_value_pair *double_rotate_left_to_right(name_value_pair *Z)
 {
    Z->leftchild = single_rotate_right(Z->leftchild);
    return single_rotate_left(Z);
 }
 
-name_value_pair *double_rotate_with_right(name_value_pair *Z)
+name_value_pair *double_rotate_right_to_left(name_value_pair *Z)
 {
    Z->rightchild = single_rotate_left(Z->rightchild);
    return single_rotate_right(Z);
 }
 
-name_value_pair* add_name_to_name_value_pair2(name_value_pair **ppname_value_pair, char *pWord, long value)
+name_value_pair* avl_tree_rebalance(name_value_pair *pname_value_pair)
+{
+   if(!pname_value_pair)
+   {
+      return NULL;
+   }
+
+   avl_tree_rebalance(pname_value_pair->leftchild);
+   
+   printf("name = %s,height=%d,left=%d,right=%d\n",pname_value_pair->name,pname_value_pair->height,
+    height_of_name_value_pair((pname_value_pair)->leftchild),
+    height_of_name_value_pair((pname_value_pair)->rightchild));
+   
+   if((height_of_name_value_pair((pname_value_pair)->leftchild) > height_of_name_value_pair((pname_value_pair)->rightchild)) &&
+      ((height_of_name_value_pair((pname_value_pair)->leftchild) - height_of_name_value_pair((pname_value_pair)->rightchild)) >= 2))
+   {
+      printf("Before rebalancing on left side. (%s)...\n",(pname_value_pair)->name);      
+      //print_ascii_tree(pname_value_pair);
+      
+      if((pname_value_pair)->leftchild)
+      {      
+         printf("Performing single_rotate_left.root(%s:%d) left(%s,%d).\n",
+         ((pname_value_pair)->name),
+         height_of_name_value_pair((pname_value_pair)),
+         ((pname_value_pair)->leftchild->name),
+         height_of_name_value_pair((pname_value_pair)->leftchild));
+         
+         (pname_value_pair) = single_rotate_left((pname_value_pair));
+      }
+   }
+   else if((height_of_name_value_pair((pname_value_pair)->leftchild) < height_of_name_value_pair((pname_value_pair)->rightchild)) &&
+      ((height_of_name_value_pair((pname_value_pair)->rightchild) - height_of_name_value_pair((pname_value_pair)->leftchild)) >= 2))
+   {
+       printf("Before rebalancing on right side. (%s)...\n",(pname_value_pair)->name);      
+       //print_ascii_tree(pname_value_pair);
+       
+       if((pname_value_pair)->rightchild)
+       {      
+          printf("Performing single_rotate_right.root(%s:%d) right(%s,%d).\n",
+          ((pname_value_pair)->name),
+          height_of_name_value_pair((pname_value_pair)),
+          ((pname_value_pair)->rightchild->name),
+          height_of_name_value_pair((pname_value_pair)->rightchild));
+          
+          (pname_value_pair) = single_rotate_right((pname_value_pair));
+       }
+   }
+
+   avl_tree_rebalance(pname_value_pair->rightchild);
+
+}
+
+
+name_value_pair* avl_tree_insert(name_value_pair **ppname_value_pair, char *pWord, long value)
 {
    if(!ppname_value_pair || !pWord || (strlen(pWord) >= MAX_WORD_LENGTH))
    {
@@ -857,57 +920,108 @@ name_value_pair* add_name_to_name_value_pair2(name_value_pair **ppname_value_pai
    }
    else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) > 0)
    {
-       (*ppname_value_pair)->leftchild = add_name_to_name_value_pair2(&(*ppname_value_pair)->leftchild,pWord,value);
+       (*ppname_value_pair)->leftchild = avl_tree_insert(&(*ppname_value_pair)->leftchild,pWord,value);
 
-       if((height_of_name_value_pair((*ppname_value_pair)->leftchild) - height_of_name_value_pair((*ppname_value_pair)->rightchild)) == 2)
+       printf("Left:(%s:%s)%d \n",
+        (*ppname_value_pair)->name,
+        pWord,
+        (*ppname_value_pair)->height);
+
+       if((height_of_name_value_pair((*ppname_value_pair)->leftchild) - height_of_name_value_pair((*ppname_value_pair)->rightchild)) >= 2)
        {
-          print_ascii_tree(get_name_value_pair_handle_single_ptr());
+          printf("Before rebalancing on left side. (%s:%s)...\n",
+           (*ppname_value_pair)->name,
+           pWord);
+          
+          //print_ascii_tree(get_name_value_pair_handle_single_ptr());
 
-          if(strncmp(((*ppname_value_pair)->leftchild->name),pWord,strlen(pWord)) > 0)
+          if((*ppname_value_pair)->leftchild)
           {
-             printf("Performing single_rotate_left because root(%s) height is 2 and leftchild(%s) is greater than %s.\n",
+
+             printf("Performing single_rotate_left.root(%s:%d) left(%s,%d).\n",
               ((*ppname_value_pair)->name),
+              height_of_name_value_pair((*ppname_value_pair)),
               ((*ppname_value_pair)->leftchild->name),
-              pWord);
+              height_of_name_value_pair((*ppname_value_pair)->leftchild));
              
              (*ppname_value_pair) = single_rotate_left((*ppname_value_pair));             
-          }
-          else
-          {
-             printf("Performing double_rotate_with_left because root(%s) height is 2 and leftchild(%s) is smaller than %s.\n",
-              ((*ppname_value_pair)->name),
-              ((*ppname_value_pair)->leftchild->name),
-              pWord);
-             
-             (*ppname_value_pair) = double_rotate_with_left((*ppname_value_pair));
+
+#if 0          
+             if(strncmp(((*ppname_value_pair)->leftchild->name),pWord,strlen(pWord)) > 0)
+             {
+                printf("Performing single_rotate_left.root(%s:%d) left(%s,%d).\n",
+                 ((*ppname_value_pair)->name),
+                 height_of_name_value_pair((*ppname_value_pair)),
+                 ((*ppname_value_pair)->leftchild->name),
+                 height_of_name_value_pair((*ppname_value_pair)->leftchild));
+                
+                (*ppname_value_pair) = single_rotate_left((*ppname_value_pair));             
+             }
+             else
+             {
+                printf("Performing double_rotate_left_to_right.root(%s:%d) left(%s,%d).\n",
+                 ((*ppname_value_pair)->name),
+                 height_of_name_value_pair((*ppname_value_pair)),
+                 ((*ppname_value_pair)->leftchild->name),
+                 height_of_name_value_pair((*ppname_value_pair)->leftchild));
+                
+                (*ppname_value_pair) = double_rotate_left_to_right((*ppname_value_pair));
+             }
+#endif             
           }
        }
    }
    else if(strncmp(((*ppname_value_pair)->name),pWord,strlen(pWord)) < 0)
    {
-      (*ppname_value_pair)->rightchild = add_name_to_name_value_pair2(&(*ppname_value_pair)->rightchild,pWord,value);
+      (*ppname_value_pair)->rightchild = avl_tree_insert(&(*ppname_value_pair)->rightchild,pWord,value);
 
-      if((height_of_name_value_pair((*ppname_value_pair)->rightchild) - height_of_name_value_pair((*ppname_value_pair)->leftchild)) == 2)
+      printf("Right:(%s:%s)%d \n",
+       (*ppname_value_pair)->name,
+       pWord,
+       (*ppname_value_pair)->height);
+
+
+      if((height_of_name_value_pair((*ppname_value_pair)->rightchild) - height_of_name_value_pair((*ppname_value_pair)->leftchild)) >= 2)
       {
-         print_ascii_tree(get_name_value_pair_handle_single_ptr());
- 
-         if(strncmp(((*ppname_value_pair)->rightchild->name),pWord,strlen(pWord)) > 0)
-         {
-            printf("Performing single_rotate_right because root(%s) height is 2 and rightchild(%s) is greater than %s.\n",
-             ((*ppname_value_pair)->name),
-             ((*ppname_value_pair)->rightchild->name),
-             pWord);
+         printf("Before rebalancing on right side. (%s:%s)...\n",
+          (*ppname_value_pair)->name,
+          pWord);
 
-            (*ppname_value_pair) = single_rotate_right((*ppname_value_pair));             
-         }
-         else
+         //print_ascii_tree(get_name_value_pair_handle_single_ptr());
+
+         if((*ppname_value_pair)->rightchild)
          {
-            printf("Performing double_rotate_with_right because root(%s) height is 2 and rightchild(%s) is smaller than %s.\n",
+            printf("Performing single_rotate_right.root(%s:%d) right(%s,%d).\n",
              ((*ppname_value_pair)->name),
+             height_of_name_value_pair((*ppname_value_pair)),
              ((*ppname_value_pair)->rightchild->name),
-             pWord);
+             height_of_name_value_pair((*ppname_value_pair)->rightchild));
+          
+          (*ppname_value_pair) = single_rotate_right((*ppname_value_pair));             
+
+            #if 0
+            if(strncmp(((*ppname_value_pair)->rightchild->name),pWord,strlen(pWord)) > 0)
+            {
+               printf("Performing single_rotate_right.root(%s:%d) right(%s,%d).\n",
+                ((*ppname_value_pair)->name),
+                height_of_name_value_pair((*ppname_value_pair)),
+                ((*ppname_value_pair)->rightchild->name),
+                height_of_name_value_pair((*ppname_value_pair)->rightchild));
+   
+               (*ppname_value_pair) = single_rotate_right((*ppname_value_pair));             
+            }
+            else
+            {
+               printf("Performing double_rotate_right_to_left.root(%s:%d) right(%s,%d).\n",
+                ((*ppname_value_pair)->name),
+                height_of_name_value_pair((*ppname_value_pair)),
+                ((*ppname_value_pair)->rightchild->name),
+                height_of_name_value_pair((*ppname_value_pair)->rightchild));
+               
+               (*ppname_value_pair) = double_rotate_right_to_left((*ppname_value_pair));
+            }
+            #endif
             
-            (*ppname_value_pair) = double_rotate_with_right((*ppname_value_pair));
          }
       }
    }
@@ -919,13 +1033,8 @@ name_value_pair* add_name_to_name_value_pair2(name_value_pair **ppname_value_pai
    (*ppname_value_pair)->height = max(height_of_name_value_pair((*ppname_value_pair)->leftchild),
                                       height_of_name_value_pair((*ppname_value_pair)->rightchild)) +1;
 
+
    return (*ppname_value_pair);
-}
-
-
-void heapify_name_value_pair()
-{
-
 }
 
 void find_the_depth_of_the_name_value_pair(name_value_pair *pname_value_pair, long *pname_value_pairDepth)
@@ -994,7 +1103,7 @@ void generate_a_name_value_pair()
         *(pWord + count) = c;
      }   
       //printf("word=%s,strlen=%ld\n",word,strlen(word));
-      add_name_to_name_value_pair2(get_name_value_pair_handle_double_ptr(),word,index);
+      avl_tree_insert(get_name_value_pair_handle_double_ptr(),word,index);
       index++;
    }
 
@@ -1063,7 +1172,7 @@ void *create_name_value_pair_database(void *arg)
 
    #ifdef READ_WORDS_FROM_TEXT_FILE
    
-   pFile = fopen ("../english-words/unsorted_words.txt","r+");
+   pFile = fopen (UNSORTED_NAMES,"r+");
 
    if (pFile == NULL)
    {
@@ -1080,10 +1189,13 @@ void *create_name_value_pair_database(void *arg)
          //puts(word);
          if(strlen(word) > 1)
          {
-            //printf("word=%s,strlen=%ld\n",word,strlen(word));
-            //add_name_to_name_value_pair(get_name_value_pair_handle_double_ptr(),word,identifier);
-            add_name_to_name_value_pair2(get_name_value_pair_handle_double_ptr(),word,identifier);
-            print_ascii_tree(get_name_value_pair_handle_single_ptr());
+            printf("word=%s,strlen=%ld\n",word,strlen(word));
+            #ifdef AVL_TREE
+            avl_tree_insert(get_name_value_pair_handle_double_ptr(),word,identifier);
+            #else
+            add_name_to_name_value_pair(get_name_value_pair_handle_double_ptr(),word,identifier);
+            //print_ascii_tree(get_name_value_pair_handle_single_ptr());
+            #endif
             index++;
          }
          memset((unsigned char *)word,0,MAX_WORD_LENGTH);         
@@ -1178,7 +1290,7 @@ void main()
    {
       long total_number_of_elements = 0;
       
-      printf("\n Enter your command:<count|dump|depth|delete|find|tree|quit>\n");
+      printf("\n Enter your command:<count|dump|depth|delete|find|tree|rebalance|quit>\n");
       memset(command,0,MAX_COMMAND_LENGTH);
       scanf("%s",command);
       printf("You entered %s\n",command);
@@ -1195,6 +1307,10 @@ void main()
       else if(strcmp("tree",command) == 0)
       {
          print_ascii_tree(get_name_value_pair_handle_single_ptr());
+      }
+      else if(strcmp("rebalance",command) == 0)
+      {
+         avl_tree_rebalance(get_name_value_pair_handle_single_ptr());
       }
       else if (strcmp("depth",command) == 0)
       {
