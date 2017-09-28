@@ -60,8 +60,8 @@ void make_unsorted_array2(long size)
         
         //add_node_to_doubly_linked_list(random_number,random_number);
         //enqueue(random_number,random_number);
-        add_to_player_score_btree(get_player_score_bt_address(),player_id,player_score);
-        add_to_player_id_btree(get_player_id_bt_address(),player_id,player_score);
+        //add_to_player_score_btree(get_player_score_bt_address(),player_id,player_score);
+        //add_to_player_id_btree(get_player_id_bt_address(),player_id,player_score);
     }
 }
 
